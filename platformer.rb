@@ -45,6 +45,11 @@ class Player
     @vel_y += Gosu::offset_y(@angle, 0.5)
   end
 
+  def moar_speed
+    @vel_x += Gosu::offset_x(@angle, 1)
+    @vel_y += Gosu::offset_y(@angle, 1)
+  end
+
   def move
     @x += @vel_x
     @y += @vel_y
@@ -96,16 +101,25 @@ class Platformer < Gosu::Window
       @player.turn_right
     end
     if Gosu::button_down? Gosu::KbUp or Gosu::button_down? Gosu::GpButton0 then
-      @player.accelerate
+      if Gosu::button_down? Gosu::KbSpace then
+        @player.moar_speed
+      else
+        @player.accelerate
+      end
     end
     @player.move
     @player.collect_stars(@stars)
 
-    if rand(100) < 4 and @stars.size < 5 then
+    if rand(1) < 4 and @stars.size < 100000000000000000000000  then
       @stars.push(Star.new(@star_anim))
     end
-  end
 
+    if @player.score == 50 then
+      puts 'You win!!!'
+      #close
+    end
+
+  end
 
   def draw
     @background_image.draw(0, 0, ZOrder::Background)
