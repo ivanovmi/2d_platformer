@@ -1,4 +1,5 @@
 require 'gosu'
+include Gosu
 
 
 class Star
@@ -81,9 +82,12 @@ end
 
 class Platformer < Gosu::Window
   def initialize
-    super 640, 480, false
-    self.caption = 'Hello World!'
-    @background_image = Gosu::Image.new("space.png", :tileable => true)
+    @screen_x = 640#1366
+    @screen_y = 480#768
+    super @screen_x, @screen_y, false
+    self.caption = 'Platformer'
+    @background_image = Gosu::Image.new("background.jpg", :tileable => true)
+    #@background_image = Gosu::Image.new("space.png", :tileable => true)
     @player = Player.new
     @player.warp(320, 240)
 
@@ -110,7 +114,7 @@ class Platformer < Gosu::Window
     @player.move
     @player.collect_stars(@stars)
 
-    if rand(1) < 4 and @stars.size < 100000000000000000000000  then
+    if rand(1) < 4 and @stars.size < 7 then
       @stars.push(Star.new(@star_anim))
     end
 
@@ -122,7 +126,12 @@ class Platformer < Gosu::Window
   end
 
   def draw
-    @background_image.draw(0, 0, ZOrder::Background)
+    fx = @screen_x/@background_image.width.to_f
+    fy = @screen_y/@background_image.height.to_f
+    puts 'image width: '+@background_image.width.to_s+', image height: '+@background_image.height.to_s
+    puts 'fx: ' + fx.to_s + ', fy: ' + fy.to_s
+    @background_image.draw(0, 0, ZOrder::Background, fx, fy)
+    # @background_image.draw(0, 0, ZOrder::Background)
     @player.draw
     @stars.each { |star| star.draw }
     @font.draw("Score: #{@player.score}", 10, 10, ZOrder::UI, 1.0, 1.0, 0xff_ffff00)
