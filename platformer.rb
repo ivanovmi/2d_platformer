@@ -5,25 +5,27 @@ include Gosu
 class Star
   attr_reader :x, :y
 
-  def initialize(animation)
+  def initialize(animation, screen_x, screen_y)
     @animation = animation
-    @color = Gosu::Color.new(0xff_000000)
-    @color.red = rand(256 - 40) + 40
-    @color.green = rand(256 - 40) + 40
-    @color.blue = rand(256 - 40) + 40
-    @x = rand * 640
-    @y = rand * 480
+    @color = Gosu::Color.new(0xff_ffffff)
+    #@color.red = rand(256 - 40) + 40
+    #@color.green = rand(256 - 40) + 40
+    #@color.blue = rand(256 - 40) + 40
+    @x = rand * screen_x
+    @y = rand * screen_y
   end
 
   def draw
-    img = @animation[Gosu::milliseconds / 100 % @animation.size];
+    img = @animation[Gosu::milliseconds / 100 % @animation.size]
     img.draw(@x - img.width / 2.0, @y - img.height / 2.0,
              ZOrder::Stars, 1, 1, @color, :add)
   end
 end
 
 class Player
-  def initialize
+  def initialize(screen_x, screen_y)
+    @screen_x = screen_x
+    @screen_y = screen_y
     @image = Gosu::Image.new("starfighter.bmp")
     @x = @y = @vel_x = @vel_y = @angle = 0.0
     @score = 0
@@ -47,15 +49,15 @@ class Player
   end
 
   def moar_speed
-    @vel_x += Gosu::offset_x(@angle, 1)
-    @vel_y += Gosu::offset_y(@angle, 1)
+    @vel_x += Gosu::offset_x(@angle, 10)
+    @vel_y += Gosu::offset_y(@angle, 10)
   end
 
   def move
     @x += @vel_x
     @y += @vel_y
-    @x %= 640
-    @y %= 480
+    @x %= @screen_x
+    @y %= @screen_y
 
     @vel_x *= 0.95
     @vel_y *= 0.95
@@ -77,24 +79,62 @@ class Player
 end
 
 module ZOrder
-  Background, Stars, Player, UI = *0..3
+  Background, Player, Block, UI = *0..3
+end
+
+class Block
+  def initialize(screen_x, screen_y)
+    @img = Gosu::Image.new('brick.png')
+
+    @lvl = File.open('scheme_lvl')
+    content = @lvl.readlines
+    content.each { |line| line.chomp("\n")}
+
+    lvl_x = content[0].length - 1
+    lvl_y = content.length
+
+    @size_x = (screen_x/lvl_x.to_f).round
+    @size_y = (screen_y/lvl_y.to_f).round
+
+  end
+
+  def draw
+    pos_x = 0
+    pos_y = 0
+
+    for i in @lvl
+      puts i
+    end
+    @img.draw(0, 0, ZOrder::Block, (@img.width/@size_x).round/10.0, (@img.height/@size_y).round/10.0)
+    for i in @lvl
+      for j in i
+        puts j
+        if j == '-'
+          @img.draw(0, 0, ZOrder::Block, (@img.width/@size_x).round/10.0, (@img.height/@size_y).round/10.0)
+        end
+      end
+      pos_x += @size_x
+      pos_y += @size_y
+    end
+  end
 end
 
 class Platformer < Gosu::Window
   def initialize
-    @screen_x = 640#1366
-    @screen_y = 480#768
+    @screen_x = 640
+    @screen_y = 480
     super @screen_x, @screen_y, false
     self.caption = 'Platformer'
-    @background_image = Gosu::Image.new("background.jpg", :tileable => true)
-    #@background_image = Gosu::Image.new("space.png", :tileable => true)
-    @player = Player.new
+    @background_image = Gosu::Image.new('background.jpg', :tileable => true)
+    @player = Player.new(@screen_x, @screen_y)
     @player.warp(320, 240)
 
-    @star_anim = Gosu::Image::load_tiles("star.png", 25, 25)
+    @star_anim = Gosu::Image::load_tiles('star.png', 25, 25)
     @stars = Array.new
 
     @font = Gosu::Font.new(20)
+    @brick = Block.new(@screen_x, @screen_y)
+    @bricks = Array.new
   end
 
   def update
@@ -105,7 +145,7 @@ class Platformer < Gosu::Window
       @player.turn_right
     end
     if Gosu::button_down? Gosu::KbUp or Gosu::button_down? Gosu::GpButton0 then
-      if Gosu::button_down? Gosu::KbSpace then
+      if Gosu::button_down? Gosu::KbLeftControl then
         @player.moar_speed
       else
         @player.accelerate
@@ -114,9 +154,9 @@ class Platformer < Gosu::Window
     @player.move
     @player.collect_stars(@stars)
 
-    if rand(1) < 4 and @stars.size < 7 then
-      @stars.push(Star.new(@star_anim))
-    end
+    #if rand(1) < 4 and @stars.size < 700 then
+    #  @stars.push(Star.new(@star_anim, @screen_x, @screen_y))
+    #end
 
     if @player.score == 50 then
       puts 'You win!!!'
@@ -128,12 +168,13 @@ class Platformer < Gosu::Window
   def draw
     fx = @screen_x/@background_image.width.to_f
     fy = @screen_y/@background_image.height.to_f
-    puts 'image width: '+@background_image.width.to_s+', image height: '+@background_image.height.to_s
-    puts 'fx: ' + fx.to_s + ', fy: ' + fy.to_s
+    #puts 'image width: '+@background_image.width.to_s+', image height: '+@background_image.height.to_s
+    #puts 'fx: ' + fx.to_s + ', fy: ' + fy.to_s
     @background_image.draw(0, 0, ZOrder::Background, fx, fy)
     # @background_image.draw(0, 0, ZOrder::Background)
     @player.draw
-    @stars.each { |star| star.draw }
+    @brick.draw
+    #@stars.each { |star| star.draw }
     @font.draw("Score: #{@player.score}", 10, 10, ZOrder::UI, 1.0, 1.0, 0xff_ffff00)
   end
 
