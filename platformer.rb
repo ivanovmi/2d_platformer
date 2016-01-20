@@ -86,36 +86,51 @@ class Block
   def initialize(screen_x, screen_y)
     @img = Gosu::Image.new('brick.png')
 
-    @lvl = File.open('scheme_lvl')
-    content = @lvl.readlines
-    content.each { |line| line.chomp("\n")}
+    lvl = File.open('scheme_lvl')
+    @content = lvl.readlines
+    @content.each { |line| line.chomp("\n")}
 
-    lvl_x = content[0].length - 1
-    lvl_y = content.length
+    lvl_x = @content[0].length - 1
+    lvl_y = @content.length
 
     @size_x = (screen_x/lvl_x.to_f).round
     @size_y = (screen_y/lvl_y.to_f).round
 
   end
 
-  def draw
+  def get_coordinates
+    coordinates = Array.new
     pos_x = 0
     pos_y = 0
 
-    for i in @lvl
-      puts i
-    end
-    @img.draw(0, 0, ZOrder::Block, (@img.width/@size_x).round/10.0, (@img.height/@size_y).round/10.0)
-    for i in @lvl
-      for j in i
-        puts j
-        if j == '-'
-          @img.draw(0, 0, ZOrder::Block, (@img.width/@size_x).round/10.0, (@img.height/@size_y).round/10.0)
+    for line in @content
+      for symbol in line.split('')
+        if symbol == '-'
+          coordinates.push([pos_x, pos_y])
         end
+        pos_x += @size_x
+        pos_y += @size_y
       end
-      pos_x += @size_x
-      pos_y += @size_y
+
     end
+
+    puts coordinates
+    return coordinates
+  end
+
+  def draw
+
+    @img.draw(0, 0, ZOrder::Block, (@img.width/@size_x).round/10.0, (@img.height/@size_y).round/10.0)
+    #for i in @lvl
+    #  for j in i
+    #    puts j
+    #    if j == '-'
+    #      @img.draw(0, 0, ZOrder::Block, (@img.width/@size_x).round/10.0, (@img.height/@size_y).round/10.0)
+    #    end
+    #  end
+    #  pos_x += @size_x
+    #  pos_y += @size_y
+    #end
   end
 end
 
@@ -173,7 +188,7 @@ class Platformer < Gosu::Window
     @background_image.draw(0, 0, ZOrder::Background, fx, fy)
     # @background_image.draw(0, 0, ZOrder::Background)
     @player.draw
-    @brick.draw
+    @brick.get_coordinates
     #@stars.each { |star| star.draw }
     @font.draw("Score: #{@player.score}", 10, 10, ZOrder::UI, 1.0, 1.0, 0xff_ffff00)
   end

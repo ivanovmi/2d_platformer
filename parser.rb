@@ -1,2 +1,2 @@
-str = '               |'.chomp("\n")
-puts str.length
+str = 'abcdef'.split('')
+puts str.is_a?Array
