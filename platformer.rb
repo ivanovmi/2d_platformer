@@ -1,80 +1,106 @@
 require 'gosu'
+require 'pp'
 include Gosu
 
+class Player
 
-class Star
-  attr_reader :x, :y
-
-  def initialize(animation, screen_x, screen_y)
-    @animation = animation
-    @color = Gosu::Color.new(0xff_ffffff)
-    #@color.red = rand(256 - 40) + 40
-    #@color.green = rand(256 - 40) + 40
-    #@color.blue = rand(256 - 40) + 40
-    @x = rand * screen_x
-    @y = rand * screen_y
+  def initialize(x,y)
+    @real_x = x
+    @real_y = y
+    @stand_right = Image.load_tiles($window, 'player_1_standby_right.png', 32, 32, false)
+    @stand_left = Image.load_tiles($window, 'player_1_standby_left.png', 32, 32, false)
+    @walk_left = Image.load_tiles($window, 'player_1_run_left.png', 32, 32, false)
+    @walk_right = Image.load_tiles($window, 'player_1_run_right.png', 32, 32, false)
+    @jump_left = Image.load_tiles($window, 'player_1_jump_left.png', 32, 32, false)
+    @jump_right = Image.load_tiles($window, 'player_1_jump_right.png', 32, 32, false)
+    @sprite = @stand_right
+    @dir = :right
+    @x = @real_x + (@sprite[0].width / 2)
+    @y = @real_y + @sprite[0].height
+    @move_x = 0
+    @moving = false
+    @jump = 0
   end
 
-  def draw
-    img = @animation[Gosu::milliseconds / 100 % @animation.size]
-    img.draw(@x - img.width / 2.0, @y - img.height / 2.0,
-             ZOrder::Stars, 1, 1, @color, :add)
+  def update
+    @real_x = @x - (@sprite[0].width / 2)
+    @real_y = @y - @sprite[0].height
+
+    if @moving then
+      if @move_x > 0 then
+        @move_x -= 1
+        @x += 1
+      elsif @move_x < 0 then
+        @move_x += 1
+        @x -= 1
+      elsif @move_x == 0 then
+        @moving = false
+      end
+    else
+      if @dir == :left then
+        @sprite = @stand_left
+      elsif @dir == :right then
+        @sprite = @stand_right
+      end
+    end
+
+    if @jump > 0 then
+      @y -= 5
+      if @dir == :left then
+        @sprite = @jump_left
+      elsif @dir == :right then
+        @sprite = @jump_right
+      end
+      @jump -= 1
+    end
   end
+
+  def fall
+    if @jump == 0 then
+      @y += 2
+      if @dir == :left then
+        @sprite = @jump_left
+      elsif @dir == :right then
+        @sprite = @jump_right
+      end
+    end
+  end
+
+  def jump
+    @jump = 15 if @jump == 0
+  end
+
+  def move_left
+    @dir = :left
+    @move_x = -3
+    @sprite = @walk_left if @jump == 0
+    @moving = true
+  end
+
+  def move_right
+    @dir = :right
+    @move_x = 3
+    @sprite = @walk_right if @jump == 0
+    @moving = true
+  end
+
+  def get_x
+    return @x
+  end
+
+  def get_y
+    return @y
+  end
+
+  def draw(z=5)
+    frame = milliseconds / 150 % @sprite.size
+    @sprite[frame].draw(@real_x, @real_y, z)
+  end
+
 end
 
-class Player
-  def initialize(screen_x, screen_y)
-    @screen_x = screen_x
-    @screen_y = screen_y
-    @image = Gosu::Image.new("starfighter.bmp")
-    @x = @y = @vel_x = @vel_y = @angle = 0.0
-    @score = 0
-  end
-
-  def warp(x, y)
-    @x, @y = x, y
-  end
-
-  def turn_left
-    @angle -= 4.5
-  end
-
-  def turn_right
-    @angle += 4.5
-  end
-
-  def accelerate
-    @vel_x += Gosu::offset_x(@angle, 0.5)
-    @vel_y += Gosu::offset_y(@angle, 0.5)
-  end
-
-  def moar_speed
-    @vel_x += Gosu::offset_x(@angle, 10)
-    @vel_y += Gosu::offset_y(@angle, 10)
-  end
-
-  def move
-    @x += @vel_x
-    @y += @vel_y
-    @x %= @screen_x
-    @y %= @screen_y
-
-    @vel_x *= 0.95
-    @vel_y *= 0.95
-  end
-
-  def draw
-    @image.draw_rot(@x, @y, 1, @angle)
-  end
-
-  def score
-    @score
-  end
-
-  def collect_stars(stars)
-    if stars.reject! {|star| Gosu::distance(@x, @y, star.x, star.y) < 35 } then
-      @score += 1
-    end
+class Block
+  def initialize
   end
 end
 
@@ -82,123 +108,115 @@ module ZOrder
   Background, Player, Block, UI = *0..3
 end
 
-class Block
-  def initialize(screen_x, screen_y)
-    @img = Gosu::Image.new('brick.png')
+class SceneMap
 
-    lvl = File.open('scheme_lvl')
-    @content = lvl.readlines
-    @content.each { |line| line.chomp("\n")}
-
-    lvl_x = @content[0].length - 1
-    lvl_y = @content.length
-
-    @size_x = (screen_x/lvl_x.to_f).round
-    @size_y = (screen_y/lvl_y.to_f).round
-
-  end
-
-  def get_coordinates
-    coordinates = Array.new
-    pos_x = 0
-    pos_y = 0
-
-    for line in @content
-      for symbol in line.split('')
-        if symbol == '-'
-          coordinates.push([pos_x, pos_y])
-        end
-        pos_x += @size_x
-        pos_y += @size_y
-      end
-
-    end
-
-    puts coordinates
-    return coordinates
-  end
-
-  def draw
-
-    @img.draw(0, 0, ZOrder::Block, (@img.width/@size_x).round/10.0, (@img.height/@size_y).round/10.0)
-    #for i in @lvl
-    #  for j in i
-    #    puts j
-    #    if j == '-'
-    #      @img.draw(0, 0, ZOrder::Block, (@img.width/@size_x).round/10.0, (@img.height/@size_y).round/10.0)
-    #    end
-    #  end
-    #  pos_x += @size_x
-    #  pos_y += @size_y
-    #end
-  end
-end
-
-class Platformer < Gosu::Window
   def initialize
-    @screen_x = 640
-    @screen_y = 480
-    super @screen_x, @screen_y, false
-    self.caption = 'Platformer'
-    @background_image = Gosu::Image.new('background.jpg', :tileable => true)
-    @player = Player.new(@screen_x, @screen_y)
-    @player.warp(320, 240)
-
-    @star_anim = Gosu::Image::load_tiles('star.png', 25, 25)
-    @stars = Array.new
-
-    @font = Gosu::Font.new(20)
-    @brick = Block.new(@screen_x, @screen_y)
-    @bricks = Array.new
+    @player = Player.new(128,128)
   end
 
   def update
-    if Gosu::button_down? Gosu::KbLeft or Gosu::button_down? Gosu::GpLeft then
-      @player.turn_left
-    end
-    if Gosu::button_down? Gosu::KbRight or Gosu::button_down? Gosu::GpRight then
-      @player.turn_right
-    end
-    if Gosu::button_down? Gosu::KbUp or Gosu::button_down? Gosu::GpButton0 then
-      if Gosu::button_down? Gosu::KbLeftControl then
-        @player.moar_speed
-      else
-        @player.accelerate
-      end
-    end
-    @player.move
-    @player.collect_stars(@stars)
+    @player.update
+    @player.move_left if $window.button_down?(KbLeft)
+    @player.move_right if $window.button_down?(KbRight)
+    @player.fall if no_ground?(@player.get_x, @player.get_y)
+  end
 
-    #if rand(1) < 4 and @stars.size < 700 then
-    #  @stars.push(Star.new(@star_anim, @screen_x, @screen_y))
-    #end
-
-    if @player.score == 50 then
-      puts 'You win!!!'
-      #close
-    end
-
+  def no_ground?(x,y)
+    return y < 480
   end
 
   def draw
-    fx = @screen_x/@background_image.width.to_f
-    fy = @screen_y/@background_image.height.to_f
-    #puts 'image width: '+@background_image.width.to_s+', image height: '+@background_image.height.to_s
-    #puts 'fx: ' + fx.to_s + ', fy: ' + fy.to_s
-    @background_image.draw(0, 0, ZOrder::Background, fx, fy)
-    # @background_image.draw(0, 0, ZOrder::Background)
     @player.draw
-    @brick.get_coordinates
-    #@stars.each { |star| star.draw }
-    @font.draw("Score: #{@player.score}", 10, 10, ZOrder::UI, 1.0, 1.0, 0xff_ffff00)
   end
 
   def button_down(id)
-    if id == Gosu::KbEscape
-      close
+    if id == KbUp then
+      if !no_ground?(@player.get_x, @player.get_y) then
+        @player.jump
+      end
+    end
+    if id == KbEscape
+      $window.close
     end
   end
+
+  def button_up(id)
+
+  end
+
 end
 
-window = Platformer.new
+class GameWindow < Window
+
+  def initialize
+    $window = self
+    super(640,480)#,false)
+    self.caption = 'Fuzed'
+    $scene = SceneMap.new
+
+    p $window.fullscreen?
+  end
+
+  def update
+    $scene.update
+  end
+
+  def draw
+
+    $scene.draw
+  end
+
+  def button_down(id)
+    $scene.button_down(id)
+    if id == KbLeftControl or id == KbRightControl
+      fullscreen = !$window.fullscreen?
+      #$window[:fullscreen] => fullscreen
+      #if id == KbEnter
+
+      #end
+    end
+  end
+
+  def button_up(id)
+    $scene.button_up(id)
+  end
+
+end
+
+
+#class Platformer < Gosu::Window
+#  def initialize
+#    @screen_x = 640
+#    @screen_y = 480
+#    super @screen_x, @screen_y, false
+#    self.caption = 'Platformer'
+#    @background_image = Gosu::Image.new('background.jpg', :tileable => true)
+#  end
+#
+#  def update
+#    if Gosu::button_down? Gosu::KbLeft or Gosu::button_down? Gosu::GpLeft then
+#    end
+#    if Gosu::button_down? Gosu::KbRight or Gosu::button_down? Gosu::GpRight then
+#    end
+#    if Gosu::button_down? Gosu::KbUp or Gosu::button_down? Gosu::GpButton0 then
+#      if Gosu::button_down? Gosu::KbLeftControl then
+#      else
+#      end
+#    end
+#  end
+#
+#  def draw
+#    fx = @screen_x/@background_image.width.to_f
+#    fy = @screen_y/@background_image.height.to_f
+#    @background_image.draw(0, 0, ZOrder::Background, fx, fy)
+#  end
+#
+#  def button_down(id)
+#    if id == Gosu::KbEscape
+#      close
+#    end
+#  end
+#end
+
+window = GameWindow.new
 window.show
